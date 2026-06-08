@@ -1,0 +1,8 @@
+# This configuration is used to run a few iterations of the controller
+MainRobot: KinovaBota
+Enabled: Posture
+
+IncludeHalfSitController: false
+ClearGlobalPluginiPath: true
+Plugins: [ ADCCollisionSensor ]
+GlobalPluginPaths: ["$<TARGET_FILE_DIR:ADCCollisionSensor>"]

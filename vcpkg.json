@@ -1,0 +1,9 @@
+{
+  "name": "mc-rtc-ADCCollisionSensor",
+  "version-string": "1.0.0",
+  "homepage": "",
+  "description": "ADCCollisionSensor Plugin for mc_rtc",
+  "dependencies": [
+    "mc-rtc"
+  ]
+}
