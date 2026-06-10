@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
 
 project(
-  ADCCollisionSensor
+  SectionCollisionSensor
   LANGUAGES CXX
   VERSION 1.0.0)
 
@@ -32,25 +32,25 @@ else()
 endif()
  
 # Configure and install the plugin configuration
-configure_file(etc/ADCCollisionSensor.in.yaml
-               "${CMAKE_CURRENT_BINARY_DIR}/etc/ADCCollisionSensor.yaml")
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/etc/ADCCollisionSensor.yaml"
+configure_file(etc/SectionCollisionSensor.in.yaml
+               "${CMAKE_CURRENT_BINARY_DIR}/etc/SectionCollisionSensor.yaml")
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/etc/SectionCollisionSensor.yaml"
         DESTINATION "${MC_PLUGINS_RUNTIME_INSTALL_PREFIX}/etc")
  
 set(plugin_SRC
-  src/ADCCollisionSensor.cpp
+  src/SectionCollisionSensor.cpp
   src/LpfThreshold.cpp
 )
  
 set(plugin_HDR
-  src/ADCCollisionSensor.h
+  src/SectionCollisionSensor.h
   src/LpfThreshold.h
   src/ROS2Subscriber.h
 )
  
 # The add_plugin macro is provided by mc_rtc
-add_plugin(ADCCollisionSensor "${plugin_SRC}" "${plugin_HDR}")
-target_link_libraries(ADCCollisionSensor PUBLIC mc_rtc::mc_rtc_ros)
+add_plugin(SectionCollisionSensor "${plugin_SRC}" "${plugin_HDR}")
+target_link_libraries(SectionCollisionSensor PUBLIC mc_rtc::mc_rtc_ros)
  
 # if(BUILD_TESTING)
 #   add_subdirectory(tests)

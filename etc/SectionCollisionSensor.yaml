@@ -1,0 +1,26 @@
+# SectionCollisionSensor plugin configuration
+
+# ROS 2 topic published by the EtherCAT ROS node (ethercat_publisher_node)
+voltage_topic: "/collision/voltage"
+
+# Voltage → contact segment mapping (applied after LPF filtering):
+#
+#   Voltage range    Segment   Nominal voltage
+#   ─────────────    ───────   ───────────────
+#   0.0 – 1.0 V       0       no contact
+#   1.0 – 2.5 V       1       1.75 V
+#   2.5 – 4.0 V       2       3.25 V
+#   4.0 – 5.5 V       3       4.75 V
+#   5.5 – 7.0 V       4       6.25 V
+#   7.0 – 8.5 V       5       7.75 V
+#   8.5 – 10.0 V      6       9.25 V
+
+# IIR low-pass filter coefficient
+#   1.0  = no filtering (raw value, maximum responsiveness)
+#   0.1  = moderate smoothing
+#   0.05 = heavy smoothing
+# Formula: y[n] = alpha * x[n] + (1 - alpha) * y[n-1]
+threshold_filtering: 1.0
+
+# Print segment-change messages to console
+verbose: true
