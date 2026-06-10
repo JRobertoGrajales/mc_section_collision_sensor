@@ -91,8 +91,13 @@ void SectionCollisionSensor::before(mc_control::MCGlobalController & controller)
   // ── 2. Compute adaptive threshold bounds ─────────────────────────────────
   threshold_high_ = lpf_.adaptiveThreshold(voltage_in_, true);
   threshold_low_  = lpf_.adaptiveThreshold(voltage_in_, false);
+  double v_filtered = lpf_.getFilteredSignal();
+  contact_segment_ = voltageToSegment(v_filtered);
 
   // ── 3. Map filtered voltage → segment ────────────────────────────────────
+  threshold_high_ = lpf_.adaptiveThreshold(voltage_in_, true);
+  threshold_low_  = lpf_.adaptiveThreshold(voltage_in_, false);
+  double v_filtered = lpf_.filter(voltage_in_);  // or however LpfThreshold filters
   contact_segment_ = voltageToSegment(v_filtered);
 
   // ── 4. Edge logging ───────────────────────────────────────────────────────
@@ -101,10 +106,10 @@ void SectionCollisionSensor::before(mc_control::MCGlobalController & controller)
     if(activate_verbose_)
     {
       mc_rtc::log::info(
-        "[SectionCollisionSensor] segment changed: {} → {}  (v_raw={:.3f} V, v_filt={:.3f} V)",   <------------- Check
-        prev_contact_segment_, contact_segment_, voltage_in_, v_filtered);                    <------------- Check
+        "[SectionCollisionSensor] segment changed: {} → {}  (v_raw={:.3f} V, v_filt={:.3f} V)",   //<------------- Check
+        prev_contact_segment_, contact_segment_, voltage_in_, v_filtered);                    //<------------- Check
     }
-    prev_contact_segment_ = contact_segment_;                                                 <------------- Check
+    prev_contact_segment_ = contact_segment_;                                                 //<------------- Check
   }
 
   // ── 5. Datastore ─────────────────────────────────────────────────────────
@@ -143,7 +148,7 @@ void SectionCollisionSensor::rosSpinner(void)
   mc_rtc::log::info("[SectionCollisionSensor][ROS Spinner] spinner destroyed");
 }
 
-void SectionCollisionSensor::addGui(mc_control::MCGlobalController & controller) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+void SectionCollisionSensor::addGui(mc_control::MCGlobalController & controller) //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 {
   auto & ctl = static_cast<mc_control::MCGlobalController &>(controller);
   ctl.controller().gui()->addElement(
@@ -167,7 +172,7 @@ void SectionCollisionSensor::addGui(mc_control::MCGlobalController & controller)
   );
 }
 
-void ADCCollisionSensor::addLog(mc_control::MCGlobalController & controller)
+void SectionCollisionSensor::addLog(mc_control::MCGlobalController & controller)
 {
   auto & logger = controller.controller().logger();
   logger.addLogEntry("SectionCollisionSensor_voltage",

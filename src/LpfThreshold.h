@@ -10,6 +10,7 @@ public:
     void setFiltering(double filtering);
     double adaptiveThreshold(double newSignal, bool high);
     Eigen::VectorXd adaptiveThreshold(const Eigen::VectorXd& newSignal, bool high);
+    double getFilteredSignal() const { return filtered_signal_b_; }
     
 private:
     int jointNumber_;

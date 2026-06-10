@@ -73,6 +73,10 @@ private:
   // ── Signal processing ────────────────────────────────────────────────────
   LpfThreshold lpf_;
   double threshold_filtering_ = 1.0; ///< LPF coefficient (0–1)
+  double threshold_offset_  = 5.0;  ///< voltage offset for adaptive threshold
+  double threshold_high_    = 0.0;
+  double threshold_low_     = 0.0;
+  double v_filtered_        = 0.0;
  
   // ── State ─────────────────────────────────────────────────────────────────
   int  contact_segment_      = 0;   ///< current segment 0-6
