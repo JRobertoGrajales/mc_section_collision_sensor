@@ -29,11 +29,11 @@ SectionCollisionSensor::~SectionCollisionSensor() = default;
 
 // ─────────────────────────────────────────────────────────────────────────────
 void SectionCollisionSensor::init(mc_control::MCGlobalController & controller,
-                               const mc_rtc::Configuration & config)
+                                  const mc_rtc::Configuration & config)
 {
   auto & ctl = static_cast<mc_control::MCGlobalController &>(controller);
 
-  // Make sure to have obstacle detection datastore entry
+  // ── Datastore entries ─────────────────────────────────────────────────────
   if(!ctl.controller().datastore().has("Obstacle detected"))
   {
     ctl.controller().datastore().make<bool>("Obstacle detected", false);
@@ -44,14 +44,9 @@ void SectionCollisionSensor::init(mc_control::MCGlobalController & controller,
   }
 
   // ── Config ────────────────────────────────────────────────────────────────
-  std::string voltage_topic = config("voltage_topic", std::string("/collision/voltage"));
-  activate_verbose_    = config("verbose",             true);
-  threshold_offset_ = config("threshold_offset",     5.0);   // Volts
-  threshold_filtering_ = config("threshold_filtering",  1.0);  // LPF alpha
-
-  // LpfThreshold::setValues(offset, filtering, jointNumber)
-  // jointNumber=1 because we have a single scalar ADC channel
-  lpf_.setValues(threshold_offset_, threshold_filtering_, 1);
+  std::string voltage_topic = config("voltage_topic",       std::string("/collision/voltage"));
+  activate_verbose_         = config("verbose",             true);
+  threshold_filtering_      = config("threshold_filtering", 0.05); // IIR alpha
 
   // ── ROS 2 subscriber ─────────────────────────────────────────────────────
   if(!ctl.controller().datastore().has("ros_spin"))
@@ -88,17 +83,14 @@ void SectionCollisionSensor::before(mc_control::MCGlobalController & controller)
   // ── 1. Grab latest voltage ────────────────────────────────────────────────
   voltage_in_ = voltage_sub_.data().value();
 
-  // ── 2. Compute adaptive threshold bounds ─────────────────────────────────
-  threshold_high_ = lpf_.adaptiveThreshold(voltage_in_, true);
-  threshold_low_  = lpf_.adaptiveThreshold(voltage_in_, false);
-  double v_filtered = lpf_.getFilteredSignal();
-  contact_segment_ = voltageToSegment(v_filtered);
+  // ── 2. IIR low-pass filter (single update per cycle) ─────────────────────
+  // y[n] = alpha * x[n] + (1 - alpha) * y[n-1]
+  // alpha = 1.0  → no filtering (output tracks input exactly)
+  // alpha = 0.05 → heavy smoothing
+  v_filtered_ = threshold_filtering_ * voltage_in_ + (1.0 - threshold_filtering_) * v_filtered_;
 
   // ── 3. Map filtered voltage → segment ────────────────────────────────────
-  threshold_high_ = lpf_.adaptiveThreshold(voltage_in_, true);
-  threshold_low_  = lpf_.adaptiveThreshold(voltage_in_, false);
-  double v_filtered = lpf_.filter(voltage_in_);  // or however LpfThreshold filters
-  contact_segment_ = voltageToSegment(v_filtered);
+  contact_segment_ = voltageToSegment(v_filtered_);
 
   // ── 4. Edge logging ───────────────────────────────────────────────────────
   if(contact_segment_ != prev_contact_segment_)
@@ -106,10 +98,10 @@ void SectionCollisionSensor::before(mc_control::MCGlobalController & controller)
     if(activate_verbose_)
     {
       mc_rtc::log::info(
-        "[SectionCollisionSensor] segment changed: {} → {}  (v_raw={:.3f} V, v_filt={:.3f} V)",   //<------------- Check
-        prev_contact_segment_, contact_segment_, voltage_in_, v_filtered);                    //<------------- Check
+        "[SectionCollisionSensor] segment changed: {} → {}  (v_raw={:.3f} V, v_filt={:.3f} V)",
+        prev_contact_segment_, contact_segment_, voltage_in_, v_filtered_);
     }
-    prev_contact_segment_ = contact_segment_;                                                 //<------------- Check
+    prev_contact_segment_ = contact_segment_;
   }
 
   // ── 5. Datastore ─────────────────────────────────────────────────────────
@@ -136,6 +128,7 @@ mc_control::GlobalPlugin::GlobalPluginConfiguration SectionCollisionSensor::conf
   return out;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 void SectionCollisionSensor::rosSpinner(void)
 {
   mc_rtc::log::info("[SectionCollisionSensor][ROS Spinner] thread created for voltage subscriber");
@@ -148,7 +141,8 @@ void SectionCollisionSensor::rosSpinner(void)
   mc_rtc::log::info("[SectionCollisionSensor][ROS Spinner] spinner destroyed");
 }
 
-void SectionCollisionSensor::addGui(mc_control::MCGlobalController & controller) //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+// ─────────────────────────────────────────────────────────────────────────────
+void SectionCollisionSensor::addGui(mc_control::MCGlobalController & controller)
 {
   auto & ctl = static_cast<mc_control::MCGlobalController &>(controller);
   ctl.controller().gui()->addElement(
@@ -156,13 +150,11 @@ void SectionCollisionSensor::addGui(mc_control::MCGlobalController & controller)
     mc_rtc::gui::NumberInput(
       "threshold_filtering",
       [this]() { return threshold_filtering_; },
-      [this](double v)
-      {
-        threshold_filtering_ = v;
-        lpf_.setFiltering(v);
-      }),
-    mc_rtc::gui::Label("voltage",
+      [this](double v) { threshold_filtering_ = v; }),
+    mc_rtc::gui::Label("voltage (raw)",
       [this]() { return std::to_string(voltage_in_); }),
+    mc_rtc::gui::Label("voltage (filtered)",
+      [this]() { return std::to_string(v_filtered_); }),
     mc_rtc::gui::Label("segment (0=none, 1-6=contact)",
       [this]() { return std::to_string(contact_segment_); }),
     mc_rtc::gui::Label("obstacle detected",
@@ -172,11 +164,14 @@ void SectionCollisionSensor::addGui(mc_control::MCGlobalController & controller)
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 void SectionCollisionSensor::addLog(mc_control::MCGlobalController & controller)
 {
   auto & logger = controller.controller().logger();
-  logger.addLogEntry("SectionCollisionSensor_voltage",
+  logger.addLogEntry("SectionCollisionSensor_voltage_raw",
                      [this]() { return voltage_in_; });
+  logger.addLogEntry("SectionCollisionSensor_voltage_filtered",
+                     [this]() { return v_filtered_; });
   logger.addLogEntry("SectionCollisionSensor_segment",
                      [this]() { return contact_segment_; });
   logger.addLogEntry("SectionCollisionSensor_obstacle_detected",
